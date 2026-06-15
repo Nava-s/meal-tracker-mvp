@@ -3,3 +3,8 @@ __pycache__/
 *.db
 .streamlit/config.toml
 .env
+venv/
+__pycache__/
+*.db
+.streamlit/config.toml
+.env
