@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="description" content="Personal meal tracker" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <title>Meal Tracker</title>
+</head>
+<body>
+  <!-- Home -->
+  <div class="view active" id="view-home"></div>
+
+  <!-- Scan Barcode -->
+  <div class="view" id="view-scan"></div>
+
+  <!-- Photo -->
+  <div class="view" id="view-photo"></div>
+
+  <!-- Review -->
+  <div class="view" id="view-review"></div>
+
+  <!-- Diary -->
+  <div class="view" id="view-diary"></div>
+
+  <!-- Meal Detail -->
+  <div class="view" id="view-meal"></div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

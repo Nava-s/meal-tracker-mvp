@@ -1,0 +1,98 @@
+name,category,kcal_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,serving_g
+Pasta,Pasta,131,5,25,1.1,200
+Pasta integrale,Pasta,124,5.3,26,0.8,200
+Spaghetti,Pasta,131,5,25,1.1,200
+Riso,Rice,130,2.7,28,0.3,180
+Riso integrale,Rice,111,2.6,23,0.9,180
+Pizza margherita,Pizza,266,11,29,11,250
+Pizza,Pizza,266,11,29,11,250
+Pane bianco,Bread,265,9,49,3.2,80
+Pane integrale,Bread,247,9.6,41,3.4,80
+Pollo arrosto,Meat,165,31,0,3.6,150
+Petto di pollo,Meat,165,31,0,3.6,150
+Carne di manzo,Meat,250,26,0,15,150
+Bistecca,Meat,250,26,0,15,150
+Maiale,Meat,242,27,0,14,150
+Salmone,Fish,208,20,0,13,150
+Tonno,Fish,130,29,0,0.6,100
+Merluzzo,Fish,82,18,0,0.7,150
+Branzino,Fish,97,18,0,2.3,150
+Uova sode,Eggs,155,13,1.1,11,120
+Uova strapazzate,Eggs,167,12,2.1,12,120
+Patate,Vegetables,77,2,17,0.1,200
+Patate arrosto,Vegetables,149,2.7,21,6.2,150
+Patate fritte,Vegetables,312,3.4,38,15,150
+Insalata mista,Salad,15,1.4,2.9,0.2,150
+Insalata,Salad,15,1.4,2.9,0.2,150
+Pomodori,Vegetables,18,0.9,3.9,0.2,100
+Zucchine,Vegetables,17,1.2,3.1,0.3,150
+Melanzane,Vegetables,25,1,5.9,0.2,150
+Peperoni,Vegetables,26,0.9,6,0.3,100
+Broccoli,Vegetables,34,2.8,7,0.4,150
+Spinaci,Vegetables,23,2.9,3.6,0.4,100
+Carote,Vegetables,41,0.9,10,0.2,100
+Fagiolini,Vegetables,31,1.8,7,0.1,100
+Minestrone,Soup,38,2.2,6.2,0.8,250
+Zuppa,Soup,38,2.2,6.2,0.8,250
+Crema di zucca,Soup,40,1.5,6,1.2,250
+Formaggio,Cheese,350,25,1,28,60
+Mozzarella,Cheese,280,27,3,17,125
+Parmigiano,Cheese,431,38,0,29,30
+Ricotta,Cheese,174,11,3,13,100
+Yogurt greco,Yogurt,97,9,3.7,5,125
+Yogurt,Yogurt,61,3.5,4.7,3.3,125
+Latte,Dairy,61,3.2,4.8,3.6,200
+Mela,Fruit,52,0.3,14,0.2,150
+Banana,Fruit,89,1.1,23,0.3,120
+Arancia,Fruit,47,0.9,12,0.1,150
+Uva,Fruit,69,0.7,18,0.2,100
+Fragole,Fruit,32,0.7,8,0.3,100
+Anguria,Fruit,30,0.6,7.6,0.2,200
+Melone,Fruit,34,0.8,8.2,0.2,150
+Pesca,Fruit,39,0.9,10,0.3,150
+Pera,Fruit,57,0.4,15,0.1,150
+Kiwi,Fruit,61,1.1,15,0.5,100
+Ananas,Fruit,50,0.5,13,0.1,100
+Mango,Fruit,60,0.8,15,0.4,150
+Fichi,Fruit,74,0.8,19,0.3,100
+Mandorle,Nuts,579,21,22,50,30
+Noci,Nuts,654,15,14,65,30
+Nocciole,Nuts,628,15,17,61,30
+Anacardi,Nuts,553,18,30,44,30
+Burro di arachidi,Nuts,588,25,20,50,30
+Cioccolato fondente,Dessert,546,4.9,61,31,30
+Cioccolato al latte,Dessert,535,7.6,59,30,30
+Tiramisù,Dessert,340,5,35,19,100
+Gelato,Ice cream,207,3.5,24,11,100
+Budino,Dessert,120,3,22,2,100
+Croissant,Cake,406,8,45,22,60
+Biscotti,Cake,438,6.6,71,15,30
+Torta,Dessert,350,5,45,16,100
+Marmellata,Sauce,250,0.4,61,0.1,30
+Miele,Sauce,304,0.3,82,0,20
+Olio d'oliva,Sauce,899,0,0,100,15
+Aceto balsamico,Sauce,88,0.5,17,0,15
+Salsa di soia,Sauce,53,8,4.9,0.6,15
+Ketchup,Sauce,101,1,24,0.2,20
+Maionese,Sauce,700,1,0.7,77,20
+Senape,Sauce,66,4,6,3,10
+Zucchero,Sauce,387,0,100,0,5
+Caffè,Drinks,2,0.1,0,0,50
+Cappuccino,Drinks,35,2.5,3.5,1.5,200
+Latte macchiato,Drinks,50,3,5,2,200
+Succo di frutta,Drinks,45,0.5,11,0,200
+Birra,Drinks,42,0.5,3.6,0,330
+Vino rosso,Drinks,85,0.1,2.6,0,125
+Vino bianco,Drinks,82,0.1,2.2,0,125
+Acqua,Drinks,0,0,0,0,250
+Pesce al forno,Fish,120,22,0,3,150
+Polpo,Fish,56,10,2.2,0.9,150
+Gamberi,Fish,85,20,0,0.5,100
+Bistecca di manzo,Meat,271,25,0,18,150
+Hamburger,Meat,295,22,0,23,150
+Salsiccia,Meat,345,18,0,30,100
+Prosciutto cotto,Meat,145,20,0,6,60
+Prosciutto crudo,Meat,200,27,0,10,60
+Salame,Meat,400,24,0,33,50
+Bresaola,Meat,151,32,0,2.5,50
+Pancetta,Meat,541,12,0,55,50
