@@ -21,6 +21,9 @@ if "db_initialized" not in st.session_state:
 if "pending_items" not in st.session_state:
     st.session_state.pending_items = []
 
+if "editor_version" not in st.session_state:
+    st.session_state.editor_version = 0
+
 if "barcode_result" not in st.session_state:
     st.session_state.barcode_result = None
 
@@ -71,6 +74,65 @@ def save_meal(source_type, items, meal_label=None, notes=None):
 
 def format_label(v):
     return LABELS.get(v, v or "")
+
+
+def handle_editor_change():
+    editor_key = f"photo_editor_{st.session_state.editor_version}"
+    state = st.session_state.get(editor_key, {})
+    if not state:
+        return
+
+    has_changes = False
+
+    # 1. Handle deleted rows
+    deleted_rows = state.get("deleted_rows", [])
+    if deleted_rows:
+        for index in sorted(deleted_rows, reverse=True):
+            if 0 <= index < len(st.session_state.pending_items):
+                st.session_state.pending_items.pop(index)
+        has_changes = True
+
+    # 2. Handle added rows
+    added_rows = state.get("added_rows", [])
+    for added in added_rows:
+        new_item = {
+            "name": added.get("name") or "Nuovo alimento",
+            "source": added.get("source") or "manual",
+            "confidence": added.get("confidence") or 0.0,
+            "estimated_grams": added.get("estimated_grams") or 100.0,
+            "kcal": added.get("kcal") or 0.0,
+            "protein_g": added.get("protein_g") or 0.0,
+            "carbs_g": added.get("carbs_g") or 0.0,
+            "fat_g": added.get("fat_g") or 0.0,
+        }
+        grams = new_item["estimated_grams"]
+        nutrients = compute_nutrients(new_item["name"], grams)
+        new_item.update(nutrients)
+        st.session_state.pending_items.append(new_item)
+        has_changes = True
+
+    # 3. Handle edited rows
+    edited_rows = state.get("edited_rows", {})
+    for index_str, changes in edited_rows.items():
+        index = int(index_str)
+        if 0 <= index < len(st.session_state.pending_items):
+            item = st.session_state.pending_items[index]
+            
+            name_changed = "name" in changes
+            grams_changed = "estimated_grams" in changes
+            
+            # Apply individual changes
+            for col, val in changes.items():
+                item[col] = val
+                
+            # If name or grams changed, recompute nutrients
+            if name_changed or grams_changed:
+                nutrients = compute_nutrients(item["name"], item["estimated_grams"])
+                item.update(nutrients)
+            has_changes = True
+
+    if has_changes:
+        st.session_state.editor_version += 1
 
 
 # ==========================================
@@ -175,14 +237,19 @@ elif menu == "📷 Analizza Foto":
 
         if st.session_state.pending_items:
             st.markdown("### Rivedi e modifica")
-            st.caption("Modifica i campi direttamente nella tabella. Se cambi i grammi,ricalcola manualmente i nutrienti.")
+            st.caption("Modifica i campi direttamente nella tabella. Cambiando alimento o grammature i valori nutrizionali si ricalcolano automaticamente.")
+
+            food_options = sorted({f["name"] for f in search_foods("", limit=1000)})
+
+            editor_key = f"photo_editor_{st.session_state.editor_version}"
 
             edited_items = st.data_editor(
                 st.session_state.pending_items,
                 num_rows="dynamic",
-                key="photo_editor",
+                key=editor_key,
+                on_change=handle_editor_change,
                 column_config={
-                    "name": st.column_config.TextColumn("Alimento", width="medium"),
+                    "name": st.column_config.SelectboxColumn("Alimento", options=food_options, width="medium"),
                     "source": st.column_config.TextColumn("Fonte", width="small"),
                     "confidence": st.column_config.NumberColumn("Confidenza", format="%.2f", width="small"),
                     "estimated_grams": st.column_config.NumberColumn("Grammi", min_value=1, step=1),
