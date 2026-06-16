@@ -9,3 +9,4 @@ torchvision>=0.15.0
 transformers>=4.30.0
 python-dateutil>=2.9.0
 numpy>=1.24.0
+pyzbar>=0.1.9

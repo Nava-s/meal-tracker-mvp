@@ -5,6 +5,12 @@ import cv2
 import numpy as np
 from PIL import Image
 
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+    HAS_PYZBAR = True
+except ImportError:
+    HAS_PYZBAR = False
+
 from db.database import init_db, SessionLocal
 from db.models import Meal, MealItem
 from services.barcode_service import lookup_barcode
@@ -26,6 +32,9 @@ if "editor_version" not in st.session_state:
 
 if "barcode_result" not in st.session_state:
     st.session_state.barcode_result = None
+
+if "readd_items" not in st.session_state:
+    st.session_state.readd_items = []
 
 db = SessionLocal()
 
@@ -174,11 +183,26 @@ if menu == "📓 Diario":
 
             with st.expander(f"{icon} {meal.created_at.strftime('%H:%M')}{label_str} — {round(meal_kcal)} kcal"):
                 for item in meal.items:
-                    st.write(
-                        f"**{item.name}** ({round(item.estimated_grams)}g) — "
-                        f"{round(item.kcal)} kcal · P {round(item.protein_g)}g · "
-                        f"C {round(item.carbs_g)}g · F {round(item.fat_g)}g"
-                    )
+                    col_info, col_btn = st.columns([5, 1])
+                    with col_info:
+                        st.write(
+                            f"**{item.name}** ({round(item.estimated_grams)}g) — "
+                            f"{round(item.kcal)} kcal · P {round(item.protein_g)}g · "
+                            f"C {round(item.carbs_g)}g · F {round(item.fat_g)}g"
+                        )
+                    with col_btn:
+                        if st.button("🔄", key=f"readd_{meal.id}_{item.id}", help="Riaggiungi alimento"):
+                            st.session_state.readd_items.append({
+                                "name": item.name,
+                                "source": "re-added",
+                                "confidence": 0,
+                                "estimated_grams": item.estimated_grams,
+                                "kcal": item.kcal,
+                                "protein_g": item.protein_g,
+                                "carbs_g": item.carbs_g,
+                                "fat_g": item.fat_g,
+                            })
+                            st.rerun()
                 if meal.notes:
                     st.caption(f"📝 {meal.notes}")
 
@@ -193,6 +217,11 @@ if menu == "📓 Diario":
 # ==========================================
 elif menu == "📷 Analizza Foto":
     st.subheader("Analizza Foto")
+
+    if st.session_state.readd_items:
+        st.session_state.pending_items.extend(st.session_state.readd_items)
+        st.session_state.readd_items = []
+        st.rerun()
 
     img_file = st.camera_input("Scatta una foto del pasto")
     if not img_file:
@@ -238,6 +267,32 @@ elif menu == "📷 Analizza Foto":
         if st.session_state.pending_items:
             st.markdown("### Rivedi e modifica")
             st.caption("Modifica i campi direttamente nella tabella. Cambiando alimento o grammature i valori nutrizionali si ricalcolano automaticamente.")
+
+            with st.expander("➕ Aggiungi alimento personalizzato (non dal database)"):
+                custom_cols = st.columns([2, 1, 1, 1, 1, 1])
+                custom_name = custom_cols[0].text_input("Nome alimento", key="custom_food_name")
+                custom_grams = custom_cols[1].number_input("Grammi", min_value=1, value=100, step=1, key="custom_food_grams")
+                custom_kcal = custom_cols[2].number_input("Kcal/100g", min_value=0.0, value=0.0, step=0.1, key="custom_food_kcal")
+                custom_prot = custom_cols[3].number_input("Prot/100g", min_value=0.0, value=0.0, step=0.1, key="custom_food_prot")
+                custom_carbs = custom_cols[4].number_input("Carb/100g", min_value=0.0, value=0.0, step=0.1, key="custom_food_carbs")
+                custom_fat = custom_cols[5].number_input("Grassi/100g", min_value=0.0, value=0.0, step=0.1, key="custom_food_fat")
+                if st.button("➕ Aggiungi alla tabella", key="add_custom_food"):
+                    if custom_name.strip():
+                        factor = custom_grams / 100.0
+                        st.session_state.pending_items.append({
+                            "name": custom_name.strip(),
+                            "source": "manual",
+                            "confidence": 0,
+                            "estimated_grams": custom_grams,
+                            "kcal": round(custom_kcal * factor, 1),
+                            "protein_g": round(custom_prot * factor, 1),
+                            "carbs_g": round(custom_carbs * factor, 1),
+                            "fat_g": round(custom_fat * factor, 1),
+                        })
+                        st.session_state.editor_version += 1
+                        st.rerun()
+                    else:
+                        st.warning("Inserisci il nome dell'alimento.")
 
             food_options = sorted({f["name"] for f in search_foods("", limit=1000)})
 
@@ -287,10 +342,28 @@ elif menu == "📱 Scansiona Barcode":
     elif barcode_img:
         file_bytes = np.asarray(bytearray(barcode_img.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        # 1. Prova con OpenCV BarcodeDetector sull'immagine originale
         detector = cv2.barcode.BarcodeDetector()
         retval, decoded_info, decoded_type, points = detector.detectAndDecode(img)
-        if retval:
+
+        # 2. Se fallisce, prova con preprocessing (grayscale + threshold)
+        if not retval:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            retval, decoded_info, decoded_type, points = detector.detectAndDecode(thresh)
+
+        # 3. Se fallisce, prova con pyzbar (più robusto)
+        if not retval and HAS_PYZBAR:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            decoded = pyzbar_decode(gray)
+            if decoded:
+                barcode_to_search = decoded[0].data.decode("utf-8")
+
+        if barcode_to_search is None and retval:
             barcode_to_search = decoded_info[0]
+
+        if barcode_to_search:
             st.success(f"Codice rilevato: **{barcode_to_search}**")
         else:
             st.warning("Barcode non leggibile. Riprova con più luce o digita il codice.")
