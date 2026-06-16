@@ -5,12 +5,6 @@ import cv2
 import numpy as np
 from PIL import Image
 
-try:
-    from pyzbar.pyzbar import decode as pyzbar_decode
-    HAS_PYZBAR = True
-except ImportError:
-    HAS_PYZBAR = False
-
 from db.database import init_db, SessionLocal
 from db.models import Meal, MealItem
 from services.barcode_service import lookup_barcode
@@ -347,21 +341,39 @@ elif menu == "📱 Scansiona Barcode":
         detector = cv2.barcode.BarcodeDetector()
         retval, decoded_info, decoded_type, points = detector.detectAndDecode(img)
 
-        # 2. Se fallisce, prova con preprocessing (grayscale + threshold)
+        # 2. Se fallisce, prova con preprocessing (grayscale + Otsu threshold)
         if not retval:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             retval, decoded_info, decoded_type, points = detector.detectAndDecode(thresh)
 
-        # 3. Se fallisce, prova con pyzbar (più robusto)
-        if not retval and HAS_PYZBAR:
+        # 3. CLAHE (contrasto locale migliorato)
+        if not retval:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            decoded = pyzbar_decode(gray)
-            if decoded:
-                barcode_to_search = decoded[0].data.decode("utf-8")
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            retval, decoded_info, decoded_type, points = detector.detectAndDecode(enhanced)
 
-        if barcode_to_search is None and retval:
-            barcode_to_search = decoded_info[0]
+        # 4. Blur + threshold adattivo
+        if not retval:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+            adaptive = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+            retval, decoded_info, decoded_type, points = detector.detectAndDecode(adaptive)
+
+        # 5. Prova su immagini ruotate (90, 180, 270 gradi)
+        if not retval:
+            for angle in [90, 180, 270]:
+                h, w = img.shape[:2]
+                center = (w // 2, h // 2)
+                M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                rotated = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR)
+                retval, decoded_info, decoded_type, points = detector.detectAndDecode(rotated)
+                if retval:
+                    break
+
+        if not retval and barcode_to_search is None:
+            barcode_to_search = decoded_info[0] if retval else None
 
         if barcode_to_search:
             st.success(f"Codice rilevato: **{barcode_to_search}**")
