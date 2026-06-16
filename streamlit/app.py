@@ -43,7 +43,7 @@ st.title("🍽️ Meal Tracker")
 
 menu = st.sidebar.radio(
     "Navigazione",
-    ["📓 Diario", "📷 Analizza Foto", "📱 Scansiona Barcode"],
+    ["📓 Diario", "✏️ Inserimento Manuale", "📷 Analizza Foto", "📱 Scansiona Barcode"],
     label_visibility="collapsed",
 )
 
@@ -319,6 +319,137 @@ elif menu == "📷 Analizza Foto":
                 st.success("✅ Pasto salvato!")
                 st.session_state.pending_items = []
                 st.rerun()
+
+
+# ==========================================
+# INSERIMENTO MANUALE
+# ==========================================
+elif menu == "✏️ Inserimento Manuale":
+    st.subheader("Inserimento Manuale")
+
+    if "manual_items" not in st.session_state:
+        st.session_state.manual_items = []
+    if "manual_editor_version" not in st.session_state:
+        st.session_state.manual_editor_version = 0
+
+    search_query = st.text_input("🔍 Cerca alimento nel database", placeholder="es. pasta, riso, pollo...")
+
+    if search_query:
+        results = search_foods(search_query, limit=20)
+        if results:
+            food_options = {f["name"]: f for f in results}
+            selected = st.selectbox("Seleziona alimento", options=list(food_options.keys()))
+            if selected:
+                info = food_options[selected]
+                st.caption(f"{info['category']} — {info['kcal_per_100g']} kcal/100g · P {info['protein_per_100g']}g · C {info['carbs_per_100g']}g · F {info['fat_per_100g']}g")
+                grams = st.number_input("Grammi", min_value=1, value=info.get("serving_g", 100), step=1)
+                if st.button("➕ Aggiungi", key="add_manual_db"):
+                    factor = grams / 100.0
+                    st.session_state.manual_items.append({
+                        "name": info["name"],
+                        "source": "manual",
+                        "confidence": 0,
+                        "estimated_grams": grams,
+                        "kcal": round(info["kcal_per_100g"] * factor, 1),
+                        "protein_g": round(info["protein_per_100g"] * factor, 1),
+                        "carbs_g": round(info["carbs_per_100g"] * factor, 1),
+                        "fat_g": round(info["fat_per_100g"] * factor, 1),
+                    })
+                    st.session_state.manual_editor_version += 1
+                    st.rerun()
+        else:
+            st.warning("Nessun alimento trovato nel database. Prova con un altro nome.")
+
+    st.divider()
+
+    with st.expander("➕ Aggiungi alimento personalizzato (non dal database)"):
+        custom_cols = st.columns([2, 1, 1, 1, 1, 1])
+        custom_name = custom_cols[0].text_input("Nome alimento", key="manual_custom_name")
+        custom_grams = custom_cols[1].number_input("Grammi", min_value=1, value=100, step=1, key="manual_custom_grams")
+        custom_kcal = custom_cols[2].number_input("Kcal/100g", min_value=0.0, value=0.0, step=0.1, key="manual_custom_kcal")
+        custom_prot = custom_cols[3].number_input("Prot/100g", min_value=0.0, value=0.0, step=0.1, key="manual_custom_prot")
+        custom_carbs = custom_cols[4].number_input("Carb/100g", min_value=0.0, value=0.0, step=0.1, key="manual_custom_carbs")
+        custom_fat = custom_cols[5].number_input("Grassi/100g", min_value=0.0, value=0.0, step=0.1, key="manual_custom_fat")
+        if st.button("➕ Aggiungi alla tabella", key="add_manual_custom"):
+            if custom_name.strip():
+                factor = custom_grams / 100.0
+                st.session_state.manual_items.append({
+                    "name": custom_name.strip(),
+                    "source": "manual",
+                    "confidence": 0,
+                    "estimated_grams": custom_grams,
+                    "kcal": round(custom_kcal * factor, 1),
+                    "protein_g": round(custom_prot * factor, 1),
+                    "carbs_g": round(custom_carbs * factor, 1),
+                    "fat_g": round(custom_fat * factor, 1),
+                })
+                st.session_state.manual_editor_version += 1
+                st.rerun()
+            else:
+                st.warning("Inserisci il nome dell'alimento.")
+
+    if st.session_state.manual_items:
+        st.markdown("### Alimenti inseriti")
+
+        def handle_manual_editor_change():
+            editor_key = f"manual_editor_{st.session_state.manual_editor_version}"
+            state = st.session_state.get(editor_key, {})
+            if not state:
+                return
+            has_changes = False
+            deleted_rows = state.get("deleted_rows", [])
+            if deleted_rows:
+                for index in sorted(deleted_rows, reverse=True):
+                    if 0 <= index < len(st.session_state.manual_items):
+                        st.session_state.manual_items.pop(index)
+                has_changes = True
+            edited_rows = state.get("edited_rows", {})
+            for index_str, changes in edited_rows.items():
+                index = int(index_str)
+                if 0 <= index < len(st.session_state.manual_items):
+                    item = st.session_state.manual_items[index]
+                    name_changed = "name" in changes
+                    grams_changed = "estimated_grams" in changes
+                    for col, val in changes.items():
+                        item[col] = val
+                    if name_changed or grams_changed:
+                        nutrients = compute_nutrients(item["name"], item["estimated_grams"])
+                        item.update(nutrients)
+                    has_changes = True
+            if has_changes:
+                st.session_state.manual_editor_version += 1
+
+        food_options = sorted({f["name"] for f in search_foods("", limit=1000)})
+
+        manual_editor_key = f"manual_editor_{st.session_state.manual_editor_version}"
+
+        edited_items = st.data_editor(
+            st.session_state.manual_items,
+            num_rows="dynamic",
+            key=manual_editor_key,
+            on_change=handle_manual_editor_change,
+            column_config={
+                "name": st.column_config.SelectboxColumn("Alimento", options=food_options, width="medium"),
+                "source": st.column_config.TextColumn("Fonte", width="small"),
+                "confidence": st.column_config.NumberColumn("Confidenza", format="%.2f", width="small"),
+                "estimated_grams": st.column_config.NumberColumn("Grammi", min_value=1, step=1),
+                "kcal": st.column_config.NumberColumn("Kcal", min_value=0, step=0.1),
+                "protein_g": st.column_config.NumberColumn("Proteine (g)", min_value=0, step=0.1),
+                "carbs_g": st.column_config.NumberColumn("Carbs (g)", min_value=0, step=0.1),
+                "fat_g": st.column_config.NumberColumn("Grassi (g)", min_value=0, step=0.1),
+            },
+            hide_index=True,
+        )
+
+        col1, col2 = st.columns(2)
+        meal_label = col1.selectbox("Tipo pasto", ["colazione", "snack", "pranzo", "cena"], key="manual_label")
+        notes = col2.text_input("Note (opzionale)", key="manual_notes")
+
+        if st.button("💾 Salva pasto", type="primary", key="manual_save"):
+            save_meal("manual", edited_items, meal_label=meal_label, notes=notes)
+            st.success("✅ Pasto salvato!")
+            st.session_state.manual_items = []
+            st.rerun()
 
 
 # ==========================================
