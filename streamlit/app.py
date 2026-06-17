@@ -342,7 +342,7 @@ elif menu == "✏️ Inserimento Manuale":
             if selected:
                 info = food_options[selected]
                 st.caption(f"{info['category']} — {info['kcal_per_100g']} kcal/100g · P {info['protein_per_100g']}g · C {info['carbs_per_100g']}g · F {info['fat_per_100g']}g")
-                grams = st.number_input("Grammi", min_value=1, value=info.get("serving_g", 100), step=1)
+                grams = st.number_input("Grammi", min_value=1, value=int(info.get("serving_g", 100)), step=1)
                 if st.button("➕ Aggiungi", key="add_manual_db"):
                     factor = grams / 100.0
                     st.session_state.manual_items.append({
