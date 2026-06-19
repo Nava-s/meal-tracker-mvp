@@ -472,47 +472,69 @@ elif menu == "📱 Scansiona Barcode":
         file_bytes = np.asarray(bytearray(barcode_img.getvalue()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-        # 1. Prova con OpenCV BarcodeDetector sull'immagine originale
-        detector = cv2.barcode.BarcodeDetector()
-        retval, decoded_info, decoded_type, points = detector.detectAndDecode(img)
+        if img is None:
+            st.error("Errore nel caricamento dell'immagine. Formato non supportato o file corrotto.")
+            barcode_to_search = None
+        else:
+            try:
+                # 1. Prova con OpenCV BarcodeDetector sull'immagine originale
+                detector = cv2.barcode.BarcodeDetector()
+                result = detector.detectAndDecode(img)
+                
+                # Handle different return formats of detectAndDecode (some versions return 3, some 4 values)
+                if isinstance(result, tuple):
+                    retval = result[0]
+                    decoded_info = result[1] if len(result) > 1 else None
+                else:
+                    retval, decoded_info = False, None
 
-        # 2. Se fallisce, prova con preprocessing (grayscale + Otsu threshold)
-        if not retval:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            retval, decoded_info, decoded_type, points = detector.detectAndDecode(thresh)
+                # 2. Se fallisce, prova con preprocessing (grayscale + Otsu threshold)
+                if not retval:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                    result = detector.detectAndDecode(thresh)
+                    retval = result[0] if isinstance(result, tuple) else False
+                    decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
 
-        # 3. CLAHE (contrasto locale migliorato)
-        if not retval:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(gray)
-            retval, decoded_info, decoded_type, points = detector.detectAndDecode(enhanced)
+                # 3. CLAHE (contrasto locale migliorato)
+                if not retval:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                    enhanced = clahe.apply(gray)
+                    result = detector.detectAndDecode(enhanced)
+                    retval = result[0] if isinstance(result, tuple) else False
+                    decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
 
-        # 4. Blur + threshold adattivo
-        if not retval:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-            adaptive = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-            retval, decoded_info, decoded_type, points = detector.detectAndDecode(adaptive)
+                # 4. Blur + threshold adattivo
+                if not retval:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+                    adaptive = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+                    result = detector.detectAndDecode(adaptive)
+                    retval = result[0] if isinstance(result, tuple) else False
+                    decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
 
-        # 5. Prova su immagini ruotate (90, 180, 270 gradi)
-        if not retval:
-            for angle in [90, 180, 270]:
-                h, w = img.shape[:2]
-                center = (w // 2, h // 2)
-                M = cv2.getRotationMatrix2D(center, angle, 1.0)
-                rotated = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR)
-                retval, decoded_info, decoded_type, points = detector.detectAndDecode(rotated)
-                if retval:
-                    break
+                # 5. Prova su immagini ruotate (90, 180, 270 gradi)
+                if not retval:
+                    for angle in [90, 180, 270]:
+                        h, w = img.shape[:2]
+                        center = (w // 2, h // 2)
+                        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                        rotated = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR)
+                        result = detector.detectAndDecode(rotated)
+                        retval = result[0] if isinstance(result, tuple) else False
+                        decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
+                        if retval:
+                            break
 
-        if not retval and barcode_to_search is None:
-            barcode_to_search = decoded_info[0] if retval else None
+                barcode_to_search = decoded_info[0] if (retval and decoded_info and isinstance(decoded_info, list)) else None
+            except Exception as e:
+                st.error(f"Errore interno durante la scansione: {e}")
+                barcode_to_search = None
 
         if barcode_to_search:
             st.success(f"Codice rilevato: **{barcode_to_search}**")
-        else:
+        elif img is not None and not barcode_to_search:
             st.warning("Barcode non leggibile. Riprova con più luce o digita il codice.")
 
     if barcode_to_search:
