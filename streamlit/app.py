@@ -531,7 +531,17 @@ elif menu == "📱 Scansiona Barcode":
                         if retval:
                             break
 
-                barcode_to_search = decoded_info[0] if (retval and decoded_info and isinstance(decoded_info, list)) else None
+                barcode_to_search = None
+                if retval and decoded_info is not None:
+                    if isinstance(decoded_info, (list, tuple, np.ndarray)) and len(decoded_info) > 0:
+                        first_val = decoded_info[0]
+                        if isinstance(first_val, bytes):
+                            first_val = first_val.decode('utf-8', errors='ignore')
+                        else:
+                            first_val = str(first_val)
+                        first_val = first_val.strip()
+                        if first_val:
+                            barcode_to_search = first_val
             except Exception as e:
                 st.error(f"Errore interno durante la scansione: {e}")
                 barcode_to_search = None
