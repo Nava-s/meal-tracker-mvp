@@ -223,9 +223,7 @@ elif menu == "📷 Analizza Foto":
         st.session_state.readd_items = []
         st.rerun()
 
-    img_file = st.camera_input("Scatta una foto del pasto")
-    if not img_file:
-        img_file = st.file_uploader("Oppure carica un'immagine", type=["jpg", "jpeg", "png"])
+    img_file = st.file_uploader("Carica una foto del pasto", type=["jpg", "jpeg", "png"])
 
     if img_file:
         image = Image.open(img_file)
@@ -464,9 +462,7 @@ elif menu == "✏️ Inserimento Manuale":
 elif menu == "📱 Scansiona Barcode":
     st.subheader("Scanner Barcode")
 
-    barcode_img = st.camera_input("Inquadra il codice a barre e scatta")
-    if not barcode_img:
-        barcode_img = st.file_uploader("Oppure carica un'immagine del barcode", type=["jpg", "jpeg", "png"])
+    barcode_img = st.file_uploader("Carica una foto del codice a barre", type=["jpg", "jpeg", "png"])
 
     manual_barcode = st.text_input("Oppure inserisci il codice manualmente:")
 
