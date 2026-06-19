@@ -459,13 +459,17 @@ elif menu == "📱 Scansiona Barcode":
     st.subheader("Scanner Barcode")
 
     barcode_img = st.camera_input("Inquadra il codice a barre e scatta")
+    if not barcode_img:
+        barcode_img = st.file_uploader("Oppure carica un'immagine del barcode", type=["jpg", "jpeg", "png"])
+
     manual_barcode = st.text_input("Oppure inserisci il codice manualmente:")
 
     barcode_to_search = None
     if manual_barcode:
         barcode_to_search = manual_barcode.strip()
     elif barcode_img:
-        file_bytes = np.asarray(bytearray(barcode_img.read()), dtype=np.uint8)
+        # Convert to numpy array using getvalue() for stability with file uploaders
+        file_bytes = np.asarray(bytearray(barcode_img.getvalue()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
         # 1. Prova con OpenCV BarcodeDetector sull'immagine originale
