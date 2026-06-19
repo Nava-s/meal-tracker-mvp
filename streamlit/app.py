@@ -5,6 +5,12 @@ import cv2
 import numpy as np
 from PIL import Image
 
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+    HAS_PYZBAR = True
+except ImportError:
+    HAS_PYZBAR = False
+
 from db.database import init_db, SessionLocal
 from db.models import Meal, MealItem
 from services.barcode_service import lookup_barcode
@@ -476,74 +482,73 @@ elif menu == "📱 Scansiona Barcode":
             st.error("Errore nel caricamento dell'immagine. Formato non supportato o file corrotto.")
             barcode_to_search = None
         else:
+            barcode_to_search = None
             try:
-                # 1. Prova con OpenCV BarcodeDetector sull'immagine originale
-                detector = cv2.barcode.BarcodeDetector()
-                result = detector.detectAndDecode(img)
-                
-                def safe_bool(val):
-                    if isinstance(val, np.ndarray):
-                        return bool(val.any())
-                    return bool(val)
+                # Helper: decode with pyzbar
+                def _pyzbar(img_to_scan):
+                    if not HAS_PYZBAR:
+                        return None
+                    try:
+                        decoded = pyzbar_decode(img_to_scan)
+                        if decoded:
+                            return decoded[0].data.decode('utf-8', errors='ignore').strip()
+                    except Exception:
+                        pass
+                    return None
 
-                if isinstance(result, tuple):
-                    retval = safe_bool(result[0])
-                    decoded_info = result[1] if len(result) > 1 else None
-                else:
-                    retval, decoded_info = False, None
+                # Helper: decode with OpenCV
+                def _opencv(img_to_scan):
+                    try:
+                        detector = cv2.barcode.BarcodeDetector()
+                        res = detector.detectAndDecode(img_to_scan)
+                        if isinstance(res, tuple) and len(res) >= 1:
+                            text = res[0]
+                            if isinstance(text, str) and text.strip():
+                                return text.strip()
+                    except Exception:
+                        pass
+                    return None
 
-                # 2. Se fallisce, prova con preprocessing (grayscale + Otsu threshold)
-                if not retval:
-                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                    result = detector.detectAndDecode(thresh)
-                    retval = safe_bool(result[0]) if isinstance(result, tuple) else False
-                    decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
+                # 1. pyzbar on original
+                barcode_to_search = _pyzbar(img)
 
-                # 3. CLAHE (contrasto locale migliorato)
-                if not retval:
-                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-                    enhanced = clahe.apply(gray)
-                    result = detector.detectAndDecode(enhanced)
-                    retval = safe_bool(result[0]) if isinstance(result, tuple) else False
-                    decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
-
-                # 4. Blur + threshold adattivo
-                if not retval:
+                # 2. pyzbar on grayscale + adaptive threshold
+                if not barcode_to_search:
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-                    adaptive = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-                    result = detector.detectAndDecode(adaptive)
-                    retval = safe_bool(result[0]) if isinstance(result, tuple) else False
-                    decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
+                    adaptive = cv2.adaptiveThreshold(
+                        blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                        cv2.THRESH_BINARY, 11, 2
+                    )
+                    barcode_to_search = _pyzbar(adaptive)
 
-                # 5. Prova su immagini ruotate (90, 180, 270 gradi)
-                if not retval:
+                # 3. pyzbar on rotations
+                if not barcode_to_search:
                     for angle in [90, 180, 270]:
                         h, w = img.shape[:2]
                         center = (w // 2, h // 2)
                         M = cv2.getRotationMatrix2D(center, angle, 1.0)
                         rotated = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR)
-                        result = detector.detectAndDecode(rotated)
-                        retval = safe_bool(result[0]) if isinstance(result, tuple) else False
-                        decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
-                        if retval:
+                        barcode_to_search = _pyzbar(rotated)
+                        if barcode_to_search:
                             break
 
-                barcode_to_search = None
-                if retval and decoded_info is not None:
-                    if isinstance(decoded_info, (list, tuple, np.ndarray)) and len(decoded_info) > 0:
-                        first_val = decoded_info[0]
-                        if isinstance(first_val, bytes):
-                            first_val = first_val.decode('utf-8', errors='ignore')
-                        else:
-                            first_val = str(first_val)
-                        first_val = first_val.strip()
-                        if first_val:
-                            barcode_to_search = first_val
+                # 4. Fallback OpenCV BarcodeDetector
+                if not barcode_to_search:
+                    barcode_to_search = _opencv(img)
+
+                if not barcode_to_search:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                    barcode_to_search = _opencv(thresh)
+
+                if not barcode_to_search:
+                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                    enhanced = clahe.apply(gray)
+                    barcode_to_search = _opencv(enhanced)
+
             except Exception as e:
-                st.error(f"Errore interno durante la scansione: {e}")
+                st.error(f"Errore durante la scansione: {e}")
                 barcode_to_search = None
 
         if barcode_to_search:
