@@ -481,9 +481,13 @@ elif menu == "📱 Scansiona Barcode":
                 detector = cv2.barcode.BarcodeDetector()
                 result = detector.detectAndDecode(img)
                 
-                # Handle different return formats of detectAndDecode (some versions return 3, some 4 values)
+                def safe_bool(val):
+                    if isinstance(val, np.ndarray):
+                        return bool(val.any())
+                    return bool(val)
+
                 if isinstance(result, tuple):
-                    retval = result[0]
+                    retval = safe_bool(result[0])
                     decoded_info = result[1] if len(result) > 1 else None
                 else:
                     retval, decoded_info = False, None
@@ -493,7 +497,7 @@ elif menu == "📱 Scansiona Barcode":
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                     result = detector.detectAndDecode(thresh)
-                    retval = result[0] if isinstance(result, tuple) else False
+                    retval = safe_bool(result[0]) if isinstance(result, tuple) else False
                     decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
 
                 # 3. CLAHE (contrasto locale migliorato)
@@ -502,7 +506,7 @@ elif menu == "📱 Scansiona Barcode":
                     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
                     enhanced = clahe.apply(gray)
                     result = detector.detectAndDecode(enhanced)
-                    retval = result[0] if isinstance(result, tuple) else False
+                    retval = safe_bool(result[0]) if isinstance(result, tuple) else False
                     decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
 
                 # 4. Blur + threshold adattivo
@@ -511,7 +515,7 @@ elif menu == "📱 Scansiona Barcode":
                     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
                     adaptive = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
                     result = detector.detectAndDecode(adaptive)
-                    retval = result[0] if isinstance(result, tuple) else False
+                    retval = safe_bool(result[0]) if isinstance(result, tuple) else False
                     decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
 
                 # 5. Prova su immagini ruotate (90, 180, 270 gradi)
@@ -522,7 +526,7 @@ elif menu == "📱 Scansiona Barcode":
                         M = cv2.getRotationMatrix2D(center, angle, 1.0)
                         rotated = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR)
                         result = detector.detectAndDecode(rotated)
-                        retval = result[0] if isinstance(result, tuple) else False
+                        retval = safe_bool(result[0]) if isinstance(result, tuple) else False
                         decoded_info = result[1] if (isinstance(result, tuple) and len(result) > 1) else None
                         if retval:
                             break
